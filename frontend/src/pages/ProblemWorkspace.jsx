@@ -17,13 +17,16 @@ import {
   ShieldAlert, 
   ArrowRight,
   TrendingUp,
-  Cpu
+  Cpu,
+  RotateCcw,
+  FileCode
 } from 'lucide-react';
 
 const ProblemWorkspace = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [problem, setProblem] = useState(null);
+  const [language, setLanguage] = useState('python'); // 'python' | 'javascript' | 'cpp' | 'java'
   const [code, setCode] = useState('');
   const [output, setOutput] = useState('');
   const [loading, setLoading] = useState(true);
@@ -40,6 +43,20 @@ const ProblemWorkspace = () => {
 
   const startTime = useRef(Date.now());
 
+  // Clean starter code per language (NOT solving the problem)
+  const getStarterComment = (lang) => {
+    switch (lang) {
+      case 'javascript':
+        return '// Write your JavaScript solution below\n\n';
+      case 'cpp':
+        return '#include <iostream>\n#include <vector>\nusing namespace std;\n\n// Write your C++ solution below\n\n';
+      case 'java':
+        return '// Write your Java solution below\npublic class Solution {\n    \n}\n';
+      default:
+        return '# Write your Python solution below\n\n';
+    }
+  };
+
   useEffect(() => {
     const fetchProblem = async () => {
       try {
@@ -47,27 +64,8 @@ const ProblemWorkspace = () => {
         const p = res.data.data;
         setProblem(p);
 
-        // Prepopulate standard function starter signature (NOT the full answer)
-        let boilerplate = '# Write your Python solution below\n\n';
-        if (p.title === 'Two Sum') {
-          boilerplate += 'def two_sum(nums, target):\n    """\n    :type nums: List[int]\n    :type target: int\n    :rtype: List[int]\n    """\n    # Implement your algorithm here\n    pass\n';
-        } else if (p.title === 'Reverse String') {
-          boilerplate += 'def reverse_string(s):\n    """\n    :type s: str\n    :rtype: str\n    """\n    pass\n';
-        } else if (p.title === 'Fibonacci Number') {
-          boilerplate += 'def fib(n):\n    """\n    :type n: int\n    :rtype: int\n    """\n    pass\n';
-        } else if (p.title === 'Valid Palindrome') {
-          boilerplate += 'def is_palindrome(s):\n    """\n    :type s: str\n    :rtype: bool\n    """\n    pass\n';
-        } else if (p.title === 'Binary Search') {
-          boilerplate += 'def binary_search(nums, target):\n    """\n    :type nums: List[int]\n    :type target: int\n    :rtype: int\n    """\n    pass\n';
-        } else if (p.title.includes('Kadane') || p.title.includes('Subarray')) {
-          boilerplate += 'def max_sub_array(nums):\n    """\n    :type nums: List[int]\n    :rtype: int\n    """\n    pass\n';
-        } else if (p.title.includes('Palindromic Substring')) {
-          boilerplate += 'def longest_palindrome(s):\n    """\n    :type s: str\n    :rtype: str\n    """\n    pass\n';
-        } else {
-          boilerplate += 'def solve(*args):\n    # Implement solution\n    pass\n';
-        }
-
-        setCode(boilerplate);
+        // Start with clean starter comment (no pre-filled program)
+        setCode(getStarterComment('python'));
         setRemediation(null);
         setHintTier(0);
         setHintContent('');
@@ -81,15 +79,53 @@ const ProblemWorkspace = () => {
     fetchProblem();
   }, [id]);
 
+  // Handle language switch
+  const handleLanguageChange = (newLang) => {
+    setLanguage(newLang);
+    setCode(getStarterComment(newLang));
+  };
+
+  // Optional: User can choose to insert a starter function signature if they want
+  const handleInsertFunctionStub = () => {
+    if (!problem) return;
+    const title = problem.title || '';
+    let stub = '';
+
+    if (language === 'python') {
+      if (title.includes('Two Sum')) stub = 'def two_sum(nums, target):\n    pass\n';
+      else if (title.includes('Reverse String')) stub = 'def reverse_string(s):\n    pass\n';
+      else if (title.includes('Fibonacci')) stub = 'def fib(n):\n    pass\n';
+      else if (title.includes('Palindrome')) stub = 'def is_palindrome(s):\n    pass\n';
+      else if (title.includes('Binary Search')) stub = 'def binary_search(nums, target):\n    pass\n';
+      else stub = 'def solve(*args):\n    pass\n';
+    } else if (language === 'javascript') {
+      if (title.includes('Two Sum')) stub = 'function two_sum(nums, target) {\n    \n}\n';
+      else if (title.includes('Reverse String')) stub = 'function reverse_string(s) {\n    \n}\n';
+      else if (title.includes('Fibonacci')) stub = 'function fib(n) {\n    \n}\n';
+      else if (title.includes('Palindrome')) stub = 'function is_palindrome(s) {\n    \n}\n';
+      else if (title.includes('Binary Search')) stub = 'function binary_search(nums, target) {\n    \n}\n';
+      else stub = 'function solve(...args) {\n    \n}\n';
+    } else {
+      stub = '// Implement solution function\n';
+    }
+
+    setCode((prev) => prev + '\n' + stub);
+  };
+
+  const handleClearCode = () => {
+    setCode('');
+  };
+
   const handleRunCode = async () => {
     setRunning(true);
-    setOutput('Compiling and verifying solution in secure sandbox...\n');
+    setOutput(`Compiling and executing in ${language} sandbox...\n`);
     try {
       const timeTaken = Math.round((Date.now() - startTime.current) / 1000);
       const res = await axios.post('/submissions', {
         problem_id: id,
         code,
         time_taken: timeTaken,
+        language,
         hint_level_used: hintTier
       });
 
@@ -102,6 +138,7 @@ const ProblemWorkspace = () => {
       if (submission.success) {
         setOutput(
           `✨ ALL TEST CASES PASSED!\n\n` +
+          `Language: ${language}\n` +
           `Execution Time: ${submission.execution_time_ms || 12}ms\n` +
           `Empirical Complexity: ${empirical_complexity || problem?.complexity_expected || 'O(n)'}\n` +
           `Elo Rating Delta: +${submission.elo_delta || 16} points\n` +
@@ -199,7 +236,7 @@ const ProblemWorkspace = () => {
           >
             {problem.difficulty}
           </span>
-          {problem.concept_tags.map(tag => (
+          {problem.concept_tags?.map(tag => (
             <span key={tag} className="tag-pill tag-teal">
               {tag}
             </span>
@@ -328,20 +365,43 @@ const ProblemWorkspace = () => {
       {/* Right Pane - Monaco Editor & Terminal Output */}
       <div style={{ width: '55%', display: 'flex', flexDirection: 'column', backgroundColor: '#FFFFFF' }}>
         
-        {/* Editor Toolbar */}
+        {/* Editor Toolbar with Language Selector & Action Controls */}
         <div style={{
-          padding: '0.75rem 1.5rem',
+          padding: '0.65rem 1.25rem',
           backgroundColor: '#FFFFFF',
           borderBottom: '1px solid var(--border)',
           display: 'flex',
           justifyContent: 'space-between',
-          alignItems: 'center'
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '0.5rem'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.85rem', fontWeight: 600, color: 'var(--brown-dark)' }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+          {/* Language Selector Dropdown */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
               <span style={{ width: '9px', height: '9px', borderRadius: '50%', backgroundColor: 'var(--teal)' }}></span>
-              <span>Python 3.10 Sandbox</span>
-            </span>
+              <select
+                value={language}
+                onChange={(e) => handleLanguageChange(e.target.value)}
+                style={{
+                  padding: '0.35rem 0.75rem',
+                  fontSize: '0.84rem',
+                  fontWeight: 600,
+                  color: 'var(--brown-dark)',
+                  backgroundColor: '#FAF7F2',
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-pill)',
+                  outline: 'none',
+                  cursor: 'pointer'
+                }}
+              >
+                <option value="python">Python 3.10</option>
+                <option value="javascript">JavaScript (Node.js)</option>
+                <option value="cpp">C++ (GCC)</option>
+                <option value="java">Java 17</option>
+              </select>
+            </div>
+
             {complexityInfo && (
               <span className="tag-pill tag-beige" style={{ fontSize: '0.72rem', padding: '0.2rem 0.6rem' }}>
                 <Cpu size={12} style={{ marginRight: '0.25rem' }} /> Empirical: {complexityInfo}
@@ -349,22 +409,63 @@ const ProblemWorkspace = () => {
             )}
           </div>
 
-          <button 
-            className="btn-teal"
-            onClick={handleRunCode}
-            disabled={running}
-            style={{ padding: '0.45rem 1.25rem' }}
-          >
-            {running ? <Loader2 size={16} className="animate-spin" /> : <Play size={15} fill="#FFFFFF" />}
-            <span>{running ? 'Evaluating...' : 'Run Code'}</span>
-          </button>
+          {/* Quick Actions (Insert Stub, Clear, Run) */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <button
+              onClick={handleInsertFunctionStub}
+              title="Insert starter function signature"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.3rem',
+                fontSize: '0.78rem',
+                padding: '0.35rem 0.65rem',
+                borderRadius: 'var(--radius-pill)',
+                border: '1px solid var(--border)',
+                backgroundColor: '#FAF7F2',
+                color: 'var(--brown-dark)',
+                cursor: 'pointer'
+              }}
+            >
+              <FileCode size={13} /> Stub
+            </button>
+
+            <button
+              onClick={handleClearCode}
+              title="Clear editor"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.3rem',
+                fontSize: '0.78rem',
+                padding: '0.35rem 0.65rem',
+                borderRadius: 'var(--radius-pill)',
+                border: '1px solid var(--border)',
+                backgroundColor: '#FAF7F2',
+                color: 'var(--brown-muted)',
+                cursor: 'pointer'
+              }}
+            >
+              <RotateCcw size={13} /> Clear
+            </button>
+
+            <button 
+              className="btn-teal"
+              onClick={handleRunCode}
+              disabled={running}
+              style={{ padding: '0.4rem 1.15rem', fontSize: '0.84rem' }}
+            >
+              {running ? <Loader2 size={15} className="animate-spin" /> : <Play size={14} fill="#FFFFFF" />}
+              <span>{running ? 'Evaluating...' : 'Run Code'}</span>
+            </button>
+          </div>
         </div>
 
         {/* Monaco Editor */}
         <div style={{ flex: 1, overflow: 'hidden' }}>
           <Editor
             height="100%"
-            defaultLanguage="python"
+            language={language === 'cpp' ? 'cpp' : (language === 'java' ? 'java' : (language === 'javascript' ? 'javascript' : 'python'))}
             theme="vs-light"
             value={code}
             onChange={(value) => setCode(value || '')}
