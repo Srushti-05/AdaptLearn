@@ -45,13 +45,17 @@ const JUDGE0_LANG_IDS = {
  * If the test case input is Python code (contains function call or print),
  * it's appended to the user's code.  Otherwise it goes to stdin.
  */
-const buildTestPayload = (userCode, testCase) => {
+const buildTestPayload = (userCode, testCase, language = 'python') => {
   if (!testCase.input) {
     return { codeToRun: userCode, stdin: '' };
   }
   const isCodeInput = testCase.input.includes('(') || testCase.input.includes('print');
   if (isCodeInput) {
-    return { codeToRun: `${userCode}\n\n${testCase.input}`, stdin: '' };
+    let testCall = testCase.input;
+    if (language === 'javascript') {
+      testCall = testCall.replace(/print\(/g, 'console.log(');
+    }
+    return { codeToRun: `${userCode}\n\n${testCall}`, stdin: '' };
   }
   return { codeToRun: userCode, stdin: testCase.input };
 };
@@ -144,10 +148,17 @@ const runOnPiston = async (code, stdin, language) => {
 
 // ── Tier 3: Local Python (dev fallback, Python only) ──────────
 
-const runLocally = (code, stdin) => {
+const runLocally = (code, stdin, language = 'python') => {
   return new Promise((resolve) => {
-    const pyCmd    = process.platform === 'win32' ? 'python' : 'python3';
-    const pyProc   = spawn(pyCmd, ['-u', '-c', code]);
+    let pyCmd, args;
+    if (language === 'javascript') {
+      pyCmd = 'node';
+      args = ['-e', code];
+    } else {
+      pyCmd = process.platform === 'win32' ? 'python' : 'python3';
+      args = ['-u', '-c', code];
+    }
+    const pyProc = spawn(pyCmd, args);
     let stdout = '', stderr = '', done = false;
 
     const timer = setTimeout(() => {
@@ -198,13 +209,13 @@ exports.executeCode = async (userCode, testCases, language = 'python') => {
   const results = [];
 
   for (const testCase of testCases) {
-    const { codeToRun, stdin } = buildTestPayload(userCode, testCase);
+    const { codeToRun, stdin } = buildTestPayload(userCode, testCase, language);
     const expected = (testCase.expected_output || '').trim();
 
     // Try each tier in order
     let raw = await runOnJudge0(codeToRun, stdin, language);
     if (!raw) raw = await runOnPiston(codeToRun, stdin, language);
-    if (!raw) raw = await runLocally(codeToRun, stdin);
+    if (!raw) raw = await runLocally(codeToRun, stdin, language);
 
     const passed = raw.exit_code === 0 && raw.stdout === expected;
 
