@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import { 
   Check, 
   BookOpen, 
@@ -10,25 +11,49 @@ import {
   ChevronDown, 
   Clock, 
   CheckCircle2, 
-  Target 
+  Target,
+  ArrowRight
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const LearningPath = () => {
   const navigate = useNavigate();
-  const [activeTooltip, setActiveTooltip] = useState(null);
+  const [learningData, setLearningData] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  const roadmapMilestones = [
-    { id: 1, type: 'teal', icon: <Check size={16} strokeWidth={2.5} />, label: 'Foundations (Completed)' },
-    { id: 2, type: 'beige', icon: <BookOpen size={16} strokeWidth={2.2} />, label: 'Data Structures (In Progress)' },
-    { id: 3, type: 'mint', icon: <Code2 size={16} strokeWidth={2.2} />, label: 'Algorithms (Upcoming)' },
-    { id: 4, type: 'beige', icon: <BarChart3 size={16} strokeWidth={2.2} />, label: 'Advanced Optimization' },
-    { id: 5, type: 'mint', icon: <Trophy size={16} strokeWidth={2.2} />, label: 'Algorithm Master' }
-  ];
+  useEffect(() => {
+    const fetchLearningPath = async () => {
+      try {
+        const res = await axios.get('/adaptive/learning-path');
+        setLearningData(res.data.data);
+      } catch (error) {
+        console.error('Error fetching learning path:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchLearningPath();
+  }, []);
+
+  const getModuleIcon = (iconName) => {
+    switch (iconName) {
+      case 'check': return <Check size={20} strokeWidth={2.6} />;
+      case 'book': return <BookOpen size={20} strokeWidth={2.2} />;
+      case 'code': return <Code2 size={20} strokeWidth={2.2} />;
+      case 'chart': return <BarChart3 size={20} strokeWidth={2.2} />;
+      case 'trophy': return <Trophy size={20} strokeWidth={2.2} />;
+      default: return <BookOpen size={20} strokeWidth={2.2} />;
+    }
+  };
+
+  const modules = learningData?.modules || [];
+  const overallProgress = learningData?.overallProgress || 0;
+  const totalSolved = learningData?.totalSolved || 0;
+  const totalAvailable = learningData?.totalAvailable || 7;
 
   return (
     <div className="fade-in">
-      {/* Top Header & Roadmap */}
+      {/* Top Header & Dynamic DAG Progression Roadmap */}
       <div className="learning-path-header">
         <div>
           <h1 className="learning-title">
@@ -36,11 +61,11 @@ const LearningPath = () => {
             <span className="text-teal">Learning Path</span>
           </h1>
           <p className="learning-subtitle">
-            Follow this AI-curated curriculum to master algorithms.
+            Curriculum governed by prerequisite dependency graphs (DAG) and Bayesian mastery evaluation.
           </p>
         </div>
 
-        {/* Subtle Decorative Roadmap */}
+        {/* Dynamic Nodes */}
         <div className="roadmap-container">
           <svg className="roadmap-svg-line" width="280" height="40" viewBox="0 0 280 40" fill="none">
             <path 
@@ -52,161 +77,104 @@ const LearningPath = () => {
           </svg>
 
           <div className="roadmap-nodes">
-            {roadmapMilestones.map((m) => (
-              <div 
-                key={m.id} 
-                className={`roadmap-node ${m.type}`}
-                title={m.label}
-                onMouseEnter={() => setActiveTooltip(m.label)}
-                onMouseLeave={() => setActiveTooltip(null)}
-              >
-                {m.icon}
-              </div>
-            ))}
+            {modules.map((m, idx) => {
+              const nodeClass = m.status === 'completed' ? 'teal' : (m.status === 'in_progress' ? 'beige' : 'mint');
+              return (
+                <div 
+                  key={m.id || idx} 
+                  className={`roadmap-node ${nodeClass}`}
+                  title={`${m.title} (${m.status})`}
+                >
+                  {m.status === 'completed' ? <Check size={16} strokeWidth={2.5} /> : (m.status === 'locked' ? <Lock size={15} /> : getModuleIcon(m.icon))}
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
 
-      {/* Main 3 Learning Module Cards */}
+      {/* Main Learning Module Cards */}
       <div className="learning-modules-list">
-        
-        {/* CARD 1: Completed */}
-        <div className="module-card">
-          <div className="module-chevron-icon" title="View details">
-            <ChevronDown size={18} />
-          </div>
+        {modules.map((mod) => {
+          const isCompleted = mod.status === 'completed';
+          const isLocked = mod.status === 'locked';
+          const isInProgress = mod.status === 'in_progress';
 
-          <div className="module-left-indicator">
-            <div className="module-icon-circle completed">
-              <Check size={22} strokeWidth={2.6} />
-            </div>
-            <div className="module-vertical-line completed"></div>
-          </div>
-
-          <div className="module-center-content">
-            <div>
-              <div className="module-title-row">
-                <h3 className="module-title">Programming Basics</h3>
+          return (
+            <div key={mod.id} className={`module-card ${isLocked ? 'locked' : ''}`}>
+              <div className="module-chevron-icon" title="View details">
+                <ChevronDown size={18} />
               </div>
-              <p className="module-desc">Variables, loops, and conditional statements.</p>
-              
-              <div className="module-tags-row">
-                <span className="tag-pill tag-teal">Variables</span>
-                <span className="tag-pill tag-teal">Loops</span>
-                <span className="tag-pill tag-teal">Conditionals</span>
-                <span className="tag-pill tag-teal">IO</span>
-                <span className="tag-pill tag-teal">Operators</span>
+
+              <div className="module-left-indicator">
+                <div className={`module-icon-circle ${mod.status}`}>
+                  {isCompleted ? <Check size={22} strokeWidth={2.6} /> : (isLocked ? <Lock size={18} strokeWidth={2.2} /> : getModuleIcon(mod.icon))}
+                </div>
+                <div className={`module-vertical-line ${mod.status}`}></div>
               </div>
-            </div>
 
-            <div className="module-challenges-count">5 CHALLENGES</div>
-          </div>
+              <div className="module-center-content">
+                <div>
+                  <div className="module-title-row">
+                    <h3 className="module-title">{mod.title}</h3>
+                  </div>
+                  <p className="module-desc">{mod.description}</p>
+                  
+                  <div className="module-tags-row">
+                    {mod.tags?.map((t) => (
+                      <span key={t} className={`tag-pill ${isCompleted ? 'tag-teal' : 'tag-beige'}`}>
+                        {t}
+                      </span>
+                    ))}
+                    {mod.prerequisites && mod.prerequisites.length > 0 && (
+                      <span className="tag-pill" style={{ backgroundColor: '#FEE2E2', color: '#DC2626', fontSize: '0.72rem' }}>
+                        Requires: {mod.prerequisites.join(', ')}
+                      </span>
+                    )}
+                  </div>
+                </div>
 
-          <div className="module-right-status">
-            <div className="progress-header">
-              <span className="progress-pct-text">100%</span>
-              <div className="progress-bar-track">
-                <div className="progress-bar-fill" style={{ width: '100%' }}></div>
+                <div className="module-challenges-count">
+                  {mod.solvedChallenges} / {mod.totalChallenges} CHALLENGES SOLVED
+                </div>
               </div>
-            </div>
 
-            <div className="status-completed-label">
-              <CheckCircle2 size={16} strokeWidth={2.4} />
-              <span>Completed</span>
-            </div>
-          </div>
-        </div>
+              <div className="module-right-status">
+                <div className="progress-header">
+                  <span className="progress-pct-text">{mod.progressPercent}%</span>
+                  <div className="progress-bar-track">
+                    <div className="progress-bar-fill" style={{ width: `${mod.progressPercent}%` }}></div>
+                  </div>
+                </div>
 
-        {/* CARD 2: In Progress */}
-        <div className="module-card">
-          <div className="module-chevron-icon" title="View details">
-            <ChevronDown size={18} />
-          </div>
+                {isCompleted && (
+                  <div className="status-completed-label">
+                    <CheckCircle2 size={16} strokeWidth={2.4} />
+                    <span>Mastered</span>
+                  </div>
+                )}
 
-          <div className="module-left-indicator">
-            <div className="module-icon-circle in-progress">
-              <BookOpen size={20} strokeWidth={2.2} />
-            </div>
-            <div className="module-vertical-line in-progress"></div>
-          </div>
+                {isInProgress && (
+                  <button 
+                    className="btn-continue"
+                    onClick={() => navigate('/problems')}
+                  >
+                    <Play size={13} fill="#FFFFFF" strokeWidth={0} />
+                    <span>Practice</span>
+                  </button>
+                )}
 
-          <div className="module-center-content">
-            <div>
-              <div className="module-title-row">
-                <h3 className="module-title">Data Structures Crash Course</h3>
-              </div>
-              <p className="module-desc">Arrays, Hashmaps, and basic Strings manipulation.</p>
-              
-              <div className="module-tags-row">
-                <span className="tag-pill tag-beige">Arrays</span>
-                <span className="tag-pill tag-beige">Hashmaps</span>
-                <span className="tag-pill tag-beige">Strings</span>
-                <span className="tag-pill tag-beige">Sets</span>
-                <span className="tag-pill tag-beige">Maps</span>
-              </div>
-            </div>
-
-            <div className="module-challenges-count">8 CHALLENGES</div>
-          </div>
-
-          <div className="module-right-status">
-            <div className="progress-header">
-              <span className="progress-pct-text">40%</span>
-              <div className="progress-bar-track">
-                <div className="progress-bar-fill" style={{ width: '40%' }}></div>
+                {isLocked && (
+                  <div className="locked-status-box">
+                    <Lock size={18} strokeWidth={2} color="var(--brown-muted)" />
+                    <div className="locked-title">Locked</div>
+                    <div className="locked-subtitle">Master prerequisites to unlock</div>
+                  </div>
+                )}
               </div>
             </div>
-
-            <button 
-              className="btn-continue"
-              onClick={() => navigate('/problems')}
-            >
-              <Play size={13} fill="#FFFFFF" strokeWidth={0} />
-              <span>Continue</span>
-            </button>
-          </div>
-        </div>
-
-        {/* CARD 3: Locked */}
-        <div className="module-card locked">
-          <div className="module-chevron-icon" title="View details">
-            <ChevronDown size={18} />
-          </div>
-
-          <div className="module-left-indicator">
-            <div className="module-icon-circle locked">
-              <Lock size={18} strokeWidth={2.2} />
-            </div>
-            <div className="module-vertical-line locked"></div>
-          </div>
-
-          <div className="module-center-content">
-            <div>
-              <div className="module-title-row">
-                <h3 className="module-title">Two Pointers & Sliding Window</h3>
-              </div>
-              <p className="module-desc">Master efficient searching and subarray problems.</p>
-              
-              <div className="module-tags-row">
-                <span className="tag-pill tag-teal">Two Pointers</span>
-                <span className="tag-pill tag-teal">Sliding Window</span>
-                <span className="tag-pill tag-teal">Subarrays</span>
-                <span className="tag-pill tag-teal">Patterns</span>
-              </div>
-            </div>
-
-            <div className="module-challenges-count">12 CHALLENGES</div>
-          </div>
-
-          <div className="module-right-status">
-            <div className="locked-status-box">
-              <Lock size={18} strokeWidth={2} color="var(--brown-muted)" />
-              <div className="locked-title">Locked</div>
-              <div className="locked-subtitle">Complete previous topics to unlock</div>
-            </div>
-          </div>
-        </div>
-
+          );
+        })}
       </div>
 
       {/* Bottom Progress Dashboard */}
@@ -214,10 +182,10 @@ const LearningPath = () => {
         
         {/* Overall Progress */}
         <div className="stat-item">
-          <div className="stat-label-row">Overall Progress</div>
-          <div className="stat-value">28%</div>
+          <div className="stat-label-row">Curriculum Completion</div>
+          <div className="stat-value">{overallProgress}%</div>
           <div className="mini-progress-bar">
-            <div className="mini-progress-fill" style={{ width: '28%' }}></div>
+            <div className="mini-progress-fill" style={{ width: `${overallProgress}%` }}></div>
           </div>
         </div>
 
@@ -225,29 +193,22 @@ const LearningPath = () => {
         <div className="stat-item">
           <div className="stat-label-row">
             <Check size={14} color="var(--teal)" strokeWidth={2.5} />
-            <span>Challenges Solved</span>
+            <span>Platform Problems Solved</span>
           </div>
           <div className="stat-value">
-            13 <span className="stat-value-sub">/ 45</span>
+            {totalSolved} <span className="stat-value-sub">/ {totalAvailable}</span>
           </div>
         </div>
 
-        {/* Time Spent */}
+        {/* Knowledge Model */}
         <div className="stat-item">
           <div className="stat-label-row">
-            <Clock size={14} color="var(--teal)" strokeWidth={2.2} />
-            <span>Time Spent</span>
+            <Target size={14} color="var(--teal)" strokeWidth={2.2} />
+            <span>Knowledge Model</span>
           </div>
-          <div className="stat-value">8h 24m</div>
-        </div>
-
-        {/* Rank */}
-        <div className="stat-item">
-          <div className="stat-label-row">
-            <Trophy size={14} color="#D97706" strokeWidth={2.2} />
-            <span>Rank</span>
+          <div className="stat-value" style={{ fontSize: '1.05rem', marginTop: '0.2rem' }}>
+            BKT + Elo Active
           </div>
-          <div className="stat-value">Top 24%</div>
         </div>
 
         {/* Motivational Card */}
@@ -256,8 +217,8 @@ const LearningPath = () => {
             <Target size={18} strokeWidth={2.3} />
           </div>
           <div>
-            <div className="motivational-title">Keep Going! 🚀</div>
-            <div className="motivational-desc">You're doing great. Consistency is the key!</div>
+            <div className="motivational-title">Adaptive Progression Active 🚀</div>
+            <div className="motivational-desc">Challenges auto-scale as your competency develops.</div>
           </div>
         </div>
 

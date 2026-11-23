@@ -1,0 +1,63 @@
+version: "3"
+
+# ─────────────────────────────────────────────────────────────
+#  AdaptLearn — Judge0 CE Self-Hosted Sandbox
+#  Phase 1: Secure, isolated code execution for all submissions
+# ─────────────────────────────────────────────────────────────
+#
+#  HOW TO START:
+#    docker-compose up -d
+#
+#  HOW TO STOP:
+#    docker-compose down
+#
+#  Judge0 API will be available at: http://localhost:2358
+# ─────────────────────────────────────────────────────────────
+
+services:
+
+  # ── Judge0 API server ───────────────────────────────────────
+  judge0-server:
+    image: judge0/judge0:1.13.1
+    volumes:
+      - ./judge0.conf:/judge0.conf:ro
+    ports:
+      - "2358:2358"
+    privileged: true
+    restart: always
+    depends_on:
+      - judge0-db
+      - judge0-redis
+
+  # ── Judge0 background workers (runs submitted code) ─────────
+  judge0-workers:
+    image: judge0/judge0:1.13.1
+    command: ["./scripts/workers"]
+    volumes:
+      - ./judge0.conf:/judge0.conf:ro
+    privileged: true
+    restart: always
+    depends_on:
+      - judge0-db
+      - judge0-redis
+
+  # ── PostgreSQL (Judge0 stores submission metadata here) ──────
+  judge0-db:
+    image: postgres:13.0
+    env_file: judge0.conf
+    volumes:
+      - judge0-postgres-data:/var/lib/postgresql/data/
+    restart: always
+
+  # ── Redis (Judge0 job queue) ─────────────────────────────────
+  judge0-redis:
+    image: redis:6.0
+    command: >
+      bash -c 'docker-entrypoint.sh --appendonly yes --requirepass "adaptlearn_redis_2024"'
+    volumes:
+      - judge0-redis-data:/data
+    restart: always
+
+volumes:
+  judge0-postgres-data:
+  judge0-redis-data:

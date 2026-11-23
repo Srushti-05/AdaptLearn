@@ -26,8 +26,34 @@ const userSchema = new mongoose.Schema({
     enum: ['beginner', 'intermediate', 'advanced'],
     default: 'beginner'
   },
+  // ── Kept for backward compatibility (adaptiveController still reads this) ─
   weak_topics: {
     type: [String],
+    default: []
+  },
+  // ── Phase 0: per-topic Elo ratings + BKT knowledge probabilities ──────────
+  // Key format for Elo  : tag name         e.g. { 'arrays': 1250 }
+  // Key format for BKT  : 'bkt_' + tag     e.g. { 'bkt_arrays': 0.72 }
+  // Both are stored in a single Map to keep the schema simple.
+  skill_ratings: {
+    type: Map,
+    of: Number,
+    default: {}
+  },
+  // ── Phase 0: consecutive fail counter per concept tag ─────────────────────
+  // Incremented each time a problem with that tag is failed.
+  // Reset to 0 when a problem with that tag is passed.
+  // Phase 4 (Remediation) uses this to trigger intervention after 3 fails.
+  attempt_counts: {
+    type: Map,
+    of: Number,
+    default: {}
+  },
+  // ── Phase 0: daily activity log for real streak calculation ───────────────
+  // Each entry is the start-of-day Date when the user submitted at least once.
+  // Phase 6 (Analytics) replaces the hardcoded "7 Day Streak" with this.
+  streak_dates: {
+    type: [Date],
     default: []
   },
   createdAt: {
