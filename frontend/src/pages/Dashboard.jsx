@@ -4,7 +4,6 @@ import { AuthContext } from '../store/AuthContext';
 import { 
   BarChart, Bar, 
   RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar,
-  PieChart, Pie, Cell, 
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer 
 } from 'recharts';
 import { 
@@ -17,7 +16,8 @@ import {
   AlertCircle, 
   ArrowRight,
   Flame,
-  Award
+  Award,
+  Sparkles
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -26,53 +26,48 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const [stats, setStats] = useState(null);
   const [recommendation, setRecommendation] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchDashboard();
-    fetchRecommendation();
+    const loadAll = async () => {
+      try {
+        const [dashRes, recRes] = await Promise.all([
+          axios.get('/adaptive/dashboard'),
+          axios.get('/adaptive/recommendation')
+        ]);
+        setStats(dashRes.data.data);
+        setRecommendation(recRes.data.data);
+      } catch (error) {
+        console.error('Error fetching dashboard stats:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadAll();
   }, []);
 
-  const fetchDashboard = async () => {
-    try {
-      const res = await axios.get('/adaptive/dashboard');
-      setStats(res.data.data);
-    } catch (error) {
-      console.error(error);
-    }
-  };
+  const weeklyData = stats?.weeklyActivity && stats.weeklyActivity.length > 0
+    ? stats.weeklyActivity
+    : [
+        { name: 'Mon', attempted: 0, solved: 0 },
+        { name: 'Tue', attempted: 0, solved: 0 },
+        { name: 'Wed', attempted: 0, solved: 0 },
+        { name: 'Thu', attempted: 0, solved: 0 },
+        { name: 'Fri', attempted: 0, solved: 0 },
+        { name: 'Sat', attempted: 0, solved: 0 },
+        { name: 'Sun', attempted: 0, solved: 0 },
+      ];
 
-  const fetchRecommendation = async () => {
-    try {
-      const res = await axios.get('/adaptive/recommendation');
-      setRecommendation(res.data.data);
-    } catch (error) {
-      console.error(error);
-    }
-  };
-
-  const weeklyData = [
-    { name: 'Mon', attempted: 4, solved: 3 },
-    { name: 'Tue', attempted: 6, solved: 5 },
-    { name: 'Wed', attempted: 3, solved: 3 },
-    { name: 'Thu', attempted: 8, solved: 6 },
-    { name: 'Fri', attempted: 5, solved: 4 },
-    { name: 'Sat', attempted: 7, solved: 7 },
-    { name: 'Sun', attempted: 2, solved: 2 },
-  ];
-
-  const radarData = [
-    { subject: 'Dynamic Prog.', A: 85 },
-    { subject: 'Trees & Graphs', A: 65 },
-    { subject: 'Arrays & Maps', A: 95 },
-    { subject: 'Two Pointers', A: 80 },
-    { subject: 'Strings', A: 90 },
-  ];
-
-  const difficultyData = [
-    { name: 'Easy', value: stats?.problemsSolvedCount || 4, color: '#178C8E' },
-    { name: 'Medium', value: 2, color: '#D97706' },
-    { name: 'Hard', value: 1, color: '#3D2921' },
-  ];
+  const radarData = stats?.radarData && stats.radarData.length > 0
+    ? stats.radarData
+    : [
+        { subject: 'Arrays', A: 30 },
+        { subject: 'Strings', A: 30 },
+        { subject: 'Two Pointers', A: 30 },
+        { subject: 'Hash Map', A: 30 },
+        { subject: 'Dynamic Prog.', A: 30 },
+        { subject: 'Binary Search', A: 30 },
+      ];
 
   return (
     <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -91,14 +86,14 @@ const Dashboard = () => {
       }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.35rem' }}>
-            <span className="badge-new">AI ENGINE ACTIVE</span>
-            <span style={{ fontSize: '0.8rem', color: 'var(--brown-muted)' }}>Real-time telemetry tracking</span>
+            <span className="badge-new">BKT & ELO ENGINE ACTIVE</span>
+            <span style={{ fontSize: '0.8rem', color: 'var(--brown-muted)' }}>Latent knowledge state tracking live</span>
           </div>
           <h2 style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--brown-dark)', margin: 0 }}>
-            Welcome back, {user?.name || 'Srushti'}!
+            Welcome back, {user?.name || 'Learner'}!
           </h2>
           <p style={{ fontSize: '0.86rem', color: 'var(--brown-muted)', marginTop: '0.25rem' }}>
-            Your learning trajectory is currently <strong style={{ color: 'var(--teal)' }}>18% ahead</strong> of standard pacing.
+            Bayesian Knowledge Tracing is dynamically tailoring problem recommendations to your Zone of Proximal Development.
           </p>
         </div>
 
@@ -113,7 +108,7 @@ const Dashboard = () => {
             gap: '1rem'
           }}>
             <div>
-              <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--teal)', textTransform: 'uppercase' }}>Recommended Next</div>
+              <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--teal)', textTransform: 'uppercase' }}>ZPD Recommended Next</div>
               <div style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--brown-dark)' }}>{recommendation.title}</div>
             </div>
             <button 
@@ -138,10 +133,10 @@ const Dashboard = () => {
             </div>
           </div>
           <div style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--brown-dark)' }}>
-            {stats?.problemsSolvedCount || 1} <span style={{ fontSize: '0.95rem', fontWeight: 500, color: 'var(--brown-muted)' }}>/ 7 total</span>
+            {stats?.problemsSolvedCount || 0} <span style={{ fontSize: '0.95rem', fontWeight: 500, color: 'var(--brown-muted)' }}>/ {stats?.totalProblemsInPlatform || 7} total</span>
           </div>
           <div style={{ fontSize: '0.75rem', color: 'var(--teal)', fontWeight: 600, marginTop: '0.25rem' }}>
-            +2 this week
+            Verified in sandbox
           </div>
         </div>
 
@@ -153,40 +148,40 @@ const Dashboard = () => {
             </div>
           </div>
           <div style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--brown-dark)' }}>
-            {stats?.accuracy || 85}%
+            {stats?.accuracy || 0}%
           </div>
           <div style={{ fontSize: '0.75rem', color: 'var(--brown-muted)', marginTop: '0.25rem' }}>
-            Across {stats?.totalSubmissions || 2} submissions
+            Across {stats?.totalSubmissions || 0} evaluated attempts
           </div>
         </div>
 
         <div className="card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-            <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--brown-muted)' }}>Current Streak</span>
+            <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--brown-muted)' }}>Consecutive Streak</span>
             <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--orange-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--orange-streak)' }}>
               <Flame size={16} />
             </div>
           </div>
           <div style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--brown-dark)' }}>
-            7 <span style={{ fontSize: '0.95rem', fontWeight: 500, color: 'var(--brown-muted)' }}>Days</span>
+            {stats?.streak || 0} <span style={{ fontSize: '0.95rem', fontWeight: 500, color: 'var(--brown-muted)' }}>Days</span>
           </div>
           <div style={{ fontSize: '0.75rem', color: 'var(--orange-streak)', fontWeight: 600, marginTop: '0.25rem' }}>
-            Personal best! 🔥
+            {stats?.streak > 0 ? 'Daily momentum active! 🔥' : 'Start your streak today!'}
           </div>
         </div>
 
         <div className="card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-            <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--brown-muted)' }}>Time Practiced</span>
+            <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--brown-muted)' }}>Submissions Logged</span>
             <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--teal-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--teal)' }}>
               <Clock size={16} />
             </div>
           </div>
           <div style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--brown-dark)' }}>
-            8h 24m
+            {stats?.totalSubmissions || 0}
           </div>
           <div style={{ fontSize: '0.75rem', color: 'var(--brown-muted)', marginTop: '0.25rem' }}>
-            Avg 42m / session
+            Telemetry profile synced
           </div>
         </div>
 
@@ -200,7 +195,7 @@ const Dashboard = () => {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
             <div>
               <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--brown-dark)', margin: 0 }}>Weekly Activity</h3>
-              <span style={{ fontSize: '0.78rem', color: 'var(--brown-muted)' }}>Submissions vs test case passes</span>
+              <span style={{ fontSize: '0.78rem', color: 'var(--brown-muted)' }}>Actual submissions vs passes from database</span>
             </div>
             <div style={{ display: 'flex', gap: '0.85rem', fontSize: '0.75rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
@@ -230,8 +225,8 @@ const Dashboard = () => {
 
         {/* Radar Mastery Chart */}
         <div className="card" style={{ gridColumn: 'span 4' }}>
-          <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--brown-dark)', marginBottom: '0.35rem' }}>Topic Mastery</h3>
-          <span style={{ fontSize: '0.78rem', color: 'var(--brown-muted)' }}>Calculated algorithm proficiency</span>
+          <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--brown-dark)', marginBottom: '0.35rem' }}>BKT Mastery Probability</h3>
+          <span style={{ fontSize: '0.78rem', color: 'var(--brown-muted)' }}>Bayesian knowledge estimation (0-100%)</span>
           
           <div style={{ height: '240px' }}>
             <ResponsiveContainer width="100%" height="100%">
@@ -250,10 +245,10 @@ const Dashboard = () => {
         <div className="card" style={{ gridColumn: 'span 6' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
             <AlertCircle size={18} color="var(--orange-streak)" />
-            <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--brown-dark)', margin: 0 }}>Targeted Focus Areas</h3>
+            <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--brown-dark)', margin: 0 }}>Targeted Remediation Focus Areas</h3>
           </div>
           <p style={{ fontSize: '0.82rem', color: 'var(--brown-muted)', marginBottom: '1rem' }}>
-            Topics identified from recent runtime errors or suboptimal complexity to reinforce:
+            Topics where Bayesian probability of mastery is currently below 65%:
           </p>
           
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
@@ -264,11 +259,9 @@ const Dashboard = () => {
                 </span>
               ))
             ) : (
-              ['dynamic programming', 'two pointers', 'sliding window'].map(t => (
-                <span key={t} className="tag-pill tag-beige" style={{ fontSize: '0.8rem', padding: '0.35rem 0.8rem' }}>
-                  🎯 {t}
-                </span>
-              ))
+              <span style={{ fontSize: '0.82rem', color: 'var(--teal)', fontWeight: 600 }}>
+                ✨ No weak topics detected! High competency across all attempted areas.
+              </span>
             )}
           </div>
         </div>
@@ -276,16 +269,16 @@ const Dashboard = () => {
         {/* Learning Path Quick CTA */}
         <div className="card" style={{ gridColumn: 'span 6', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', background: 'linear-gradient(135deg, var(--teal-soft) 0%, #FFFFFF 100%)' }}>
           <div>
-            <span className="badge-new" style={{ marginBottom: '0.5rem', display: 'inline-block' }}>NEXT MILESTONE</span>
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--brown-dark)', margin: 0 }}>Data Structures Crash Course</h3>
+            <span className="badge-new" style={{ marginBottom: '0.5rem', display: 'inline-block' }}>CURRICULUM</span>
+            <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--brown-dark)', margin: 0 }}>Dynamic Prerequisite Learning Path</h3>
             <p style={{ fontSize: '0.82rem', color: 'var(--brown-muted)', marginTop: '0.35rem' }}>
-              40% completed • 8 Challenges available covering Arrays, Hash Maps & Strings.
+              Progress through DAG-governed modules. Higher tier modules unlock automatically once foundational competencies are proven.
             </p>
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
-            <button className="btn-teal" onClick={() => navigate('/')}>
-              Continue Learning Path <ArrowRight size={16} />
+            <button className="btn-teal" onClick={() => navigate('/learning-path')}>
+              Explore Learning Path <ArrowRight size={16} />
             </button>
           </div>
         </div>

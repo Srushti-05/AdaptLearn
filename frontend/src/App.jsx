@@ -1,4 +1,5 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
+import axios from 'axios';
 import { BrowserRouter as Router, Routes, Route, Navigate, Link, useLocation, useNavigate } from 'react-router-dom';
 import { AuthContext } from './store/AuthContext';
 import { 
@@ -33,6 +34,19 @@ import AdaptLearnLogo from './components/AdaptLearnLogo';
 const Sidebar = ({ onOpenAiTutor, onOpenAchievements, onOpenBookmarks }) => {
   const { user } = useContext(AuthContext);
   const location = useLocation();
+  const [streakCount, setStreakCount] = useState(0);
+
+  useEffect(() => {
+    if (user) {
+      axios.get('/adaptive/dashboard')
+        .then(res => {
+          if (res.data?.data?.streak !== undefined) {
+            setStreakCount(res.data.data.streak);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [user]);
 
   if (!user) return null;
 
@@ -99,13 +113,13 @@ const Sidebar = ({ onOpenAiTutor, onOpenAchievements, onOpenBookmarks }) => {
         })}
       </ul>
 
-      {/* Bottom 7 Day Streak Card */}
+      {/* Daily Streak Card */}
       <div className="streak-card">
         <div className="streak-header">
           <div>
-            <div className="streak-number">7</div>
+            <div className="streak-number">{streakCount}</div>
             <div className="streak-label">Day Streak</div>
-            <div className="streak-subtext">Keep it up! 🔥</div>
+            <div className="streak-subtext">{streakCount > 0 ? 'Keep it going! 🔥' : 'Solve a challenge today!'}</div>
           </div>
           <div className="streak-icon-box">
             <span>🔥</span>
@@ -114,13 +128,13 @@ const Sidebar = ({ onOpenAiTutor, onOpenAchievements, onOpenBookmarks }) => {
 
         <div className="streak-days-row">
           {[
-            { day: 'M', active: true },
-            { day: 'T', active: true },
-            { day: 'W', active: true },
-            { day: 'T', active: true },
-            { day: 'F', active: true },
-            { day: 'S', active: false },
-            { day: 'S', active: false },
+            { day: 'M', active: streakCount >= 1 },
+            { day: 'T', active: streakCount >= 2 },
+            { day: 'W', active: streakCount >= 3 },
+            { day: 'T', active: streakCount >= 4 },
+            { day: 'F', active: streakCount >= 5 },
+            { day: 'S', active: streakCount >= 6 },
+            { day: 'S', active: streakCount >= 7 },
           ].map((d, idx) => (
             <div key={idx} className="streak-day-col">
               <span className="streak-day-letter">{d.day}</span>
@@ -291,33 +305,39 @@ const Header = ({ onOpenAiTutor, searchQuery, setSearchQuery }) => {
 
 // Interactive AI Tutor Modal / Drawer
 const AiTutorDrawer = ({ isOpen, onClose }) => {
+  const { user } = useContext(AuthContext);
   const [messages, setMessages] = useState([
     {
       sender: 'ai',
-      text: "Hello Srushti! I'm your AdaptLearn AI Tutor. I'm tracking your algorithm progress and ready to help you analyze time complexities, debug Python code, or explain concepts!"
+      text: `Hello ${user?.name || 'Learner'}! I'm your AdaptLearn Socratic AI Tutor. I track your algorithm competencies and can help you analyze time complexities, debug Python logic, and explain fundamental concepts!`
     }
   ]);
   const [inputVal, setInputVal] = useState('');
+  const [loadingReply, setLoadingReply] = useState(false);
 
   if (!isOpen) return null;
 
-  const handleSend = (e) => {
+  const handleSend = async (e) => {
     e.preventDefault();
-    if (!inputVal.trim()) return;
+    if (!inputVal.trim() || loadingReply) return;
 
     const userMsg = inputVal;
     setMessages((prev) => [...prev, { sender: 'user', text: userMsg }]);
     setInputVal('');
+    setLoadingReply(true);
 
-    setTimeout(() => {
-      let reply = "That's a great question! In Python algorithms, optimizing lookup time with a Hash Map (dictionary) reduces overall time complexity from O(n²) to O(n). Let me know if you'd like code snippets for your current problem!";
-      if (userMsg.toLowerCase().includes('two sum')) {
-        reply = "For Two Sum: Store each number's complement (`target - num`) in a hash map as you iterate through the list. When you encounter a complement already in the map, you immediately have your answer in O(n) time!";
-      } else if (userMsg.toLowerCase().includes('streak') || userMsg.toLowerCase().includes('progress')) {
-        reply = "You're on a 7-day streak! Solving 1-2 problems daily consistently reinforces memory patterns far better than weekend cramming.";
-      }
+    try {
+      const res = await axios.post('/hints/chat', { message: userMsg });
+      const reply = res.data?.data?.reply || "Let's break that down conceptually. What data structure or invariant are you considering?";
       setMessages((prev) => [...prev, { sender: 'ai', text: reply }]);
-    }, 600);
+    } catch {
+      setMessages((prev) => [...prev, { 
+        sender: 'ai', 
+        text: "In algorithmic problem solving, analyze time and space complexity constraints first. What is the access pattern of your data?" 
+      }]);
+    } finally {
+      setLoadingReply(false);
+    }
   };
 
   return (
@@ -393,6 +413,19 @@ const AiTutorDrawer = ({ isOpen, onClose }) => {
               {m.text}
             </div>
           ))}
+          {loadingReply && (
+            <div style={{
+              alignSelf: 'flex-start',
+              padding: '0.65rem 1rem',
+              borderRadius: '16px 16px 16px 4px',
+              backgroundColor: '#FFFFFF',
+              color: 'var(--teal)',
+              fontSize: '0.8rem',
+              border: '1px solid var(--border)'
+            }}>
+              Thinking Socratic response...
+            </div>
+          )}
         </div>
 
         {/* Input Footer */}

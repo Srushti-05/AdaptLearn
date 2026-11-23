@@ -22,12 +22,14 @@ const authRoutes = require('./src/routes/authRoutes');
 const problemRoutes = require('./src/routes/problemRoutes');
 const submissionRoutes = require('./src/routes/submissionRoutes');
 const adaptiveRoutes = require('./src/routes/adaptiveRoutes');
+const hintRoutes = require('./src/routes/hintRoutes');
 
 // Mount routers
 app.use('/api/auth', authRoutes);
 app.use('/api/problems', problemRoutes);
 app.use('/api/submissions', submissionRoutes);
 app.use('/api/adaptive', adaptiveRoutes);
+app.use('/api/hints', hintRoutes);
 
 // Base route
 app.get('/', (req, res) => {
